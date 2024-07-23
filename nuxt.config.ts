@@ -4,6 +4,7 @@ export default defineNuxtConfig({
     pageTransition: { name: 'page', mode: 'out-in' }
   },
   runtimeConfig:{
+    isServer: true,
     public:{
       baseUrl:'http://192.168.124.27:3333/v1'
     }

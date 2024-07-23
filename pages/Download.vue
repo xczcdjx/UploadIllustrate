@@ -2,16 +2,21 @@
 import {ref} from 'vue'
 import http from "~/api";
 import {Upload} from "~/api/api";
-
+import { useIndexedDB } from '~/utils/indexDb';
+import {getStorage, setStorage} from "~/utils/storage";
+// indexDb 存储支持
+const config=useRuntimeConfig()
+const isClient=computed(()=>!config.isServer)
+const indexedDB = isClient.value ? useIndexedDB('fileDB', 'tempFiles') : null;
 const sliceDownload = [
   {t: '后', p: '/v1/download/fileSizeB', extra: ''},
 ]
 const f = reactive({
   path: '/static/sliceMedia/willow.mp4',
-  size: 50
+  size: 256
 })
 const currentChunk=ref<number>(0)
-let fileTemp:Blob[]=[]
+// let fileTemp:Blob[]=[]
 const isDownload=ref<boolean>(false)
 const fileInfo=reactive({
   mPath:'',
@@ -19,12 +24,18 @@ const fileInfo=reactive({
   totalChunk:1
 })
 const onStart=()=>{
+  // 获取文件信息
   http.get(Upload.fileInfo,f).then(v=>{
     const {totalSize,sliceNum,sliceSize,mPath,path}=v.data
     fileInfo.totalSize=totalSize
     fileInfo.totalChunk=sliceNum
     fileInfo.mPath=mPath
     isDownload.value=true
+    setStorage('fileInfo',{
+      totalSize,
+      size:f.size,
+      totalChunk:sliceNum,
+    })
     downFile()
   }).catch(r=>{
     console.log(r)
@@ -37,30 +48,60 @@ const onResume = () => {
   isDownload.value=true
   downFile()
 }
-const onStop = () => {
-
+const onStop = async () => {
+  if (isClient.value) await indexedDB!.clearAllData();
+  isDownload.value = false;
+  currentChunk.value = 0;
 }
 async function downFile() {
   if (currentChunk.value>=fileInfo.totalChunk) return
   const res=await http.get(Upload.fileLoad,{mPath:fileInfo.mPath,start:currentChunk.value},{responseType:'blob'})
   currentChunk.value++
-  fileTemp.push(res as any)
+  // IndexDb save
+  if (isClient.value) await indexedDB!.setItem(`chunk-${currentChunk.value}`, res);
+
   if (isDownload.value&&currentChunk.value<fileInfo.totalChunk){
     downFile()
   }else if(currentChunk.value>=fileInfo.totalChunk){
     finishFile()
   }
 }
-function finishFile() {
+async function finishFile() {
+  if (!isClient.value) return
+  const fileTemp: Blob[] = [];
+
+  for (let i = 1; i <= currentChunk.value; i++) {
+    const chunk = await indexedDB!.getItem<Blob>(`chunk-${i}`);
+    if (chunk) {
+      fileTemp.push(chunk);
+    }
+  }
   const blob = new Blob(fileTemp, { type: 'application/octet-stream' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = f.path.split('/').pop() as string;
   a.click();
-
   URL.revokeObjectURL(url);
+  await indexedDB!.clearAllData();
+  removeStorage('fileInfo')
 }
+// 初始化值
+onMounted(async () => {
+  if (isClient.value){
+    const keys = await indexedDB!.getAllKeys();
+    const dInfo=getStorage('fileInfo')
+    if (dInfo!==null){
+      fileInfo.totalSize=dInfo.totalSize
+      fileInfo.totalChunk=dInfo.totalChunk
+      f.size=dInfo.size
+      if (keys.length > 0) {
+        currentChunk.value = keys.length;
+        isDownload.value = true;
+      }
+    }
+  }
+});
 </script>
 
 <template>
