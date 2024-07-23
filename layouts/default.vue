@@ -129,9 +129,9 @@ const userNavigation = [
         </div>
       </header>
       <main>
-        <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+<!--        <div class="mx-auto max-w-7xl px-2 py-4 sm:px-2 lg:px-4">-->
           <slot/>
-        </div>
+<!--        </div>-->
       </main>
     </div>
   </div>
@@ -139,7 +139,9 @@ const userNavigation = [
 
 <style scoped>
 .contain {
-  width: 100vw;
+  //width: 100vw;
   height: 100vh;
+  //display: grid;
+  //grid-auto-rows: 4rem 60px 1fr;
 }
 </style>
