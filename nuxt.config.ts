@@ -6,7 +6,7 @@ export default defineNuxtConfig({
   runtimeConfig:{
     isServer: true,
     public:{
-      baseUrl:'http://192.168.124.27:3333/v1'
+      baseUrl:'http://192.168.124.27:3335/v1'
     }
   },
   compatibilityDate: '2024-04-03',
