@@ -12,7 +12,7 @@ const sliceDownload = [
   {t: '后', p: '/v1/download/fileSizeB', extra: ''},
 ]
 const f = reactive({
-  path: '/static/sliceMedia/willow.mp4',
+  path: '/static/medias/2024/09/all too well.mp4',
   size: 256
 })
 const currentChunk = ref<number>(0)

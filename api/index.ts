@@ -3,7 +3,7 @@ import {type FetchContext,type FetchResponse} from "ofetch";
 // import {userStore} from "~/store/user";
 
 type Methods = "GET" | "POST" | "DELETE" | "PUT" | "PATCH";
-const BASE_URL = 'http://192.168.124.27:3333';
+const BASE_URL = 'http://192.168.124.27:3335';
 
 export interface Data<T = any> {
     code: number;

@@ -6,8 +6,12 @@ export default defineNuxtConfig({
   runtimeConfig:{
     isServer: true,
     public:{
-      baseUrl:'http://192.168.124.27:3335/v1'
+      baseUrl:'http://192.168.124.27:3335',
     }
+  },
+  devServer: {
+    host: '0.0.0.0',
+    port: 3355,
   },
   compatibilityDate: '2024-04-03',
   devtools: { enabled: true },
