@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import http from "~/api";
-import CryptoJS from "crypto-js";
-import SparkMD5 from "spark-md5";
+import {calculateFileHash, calculateFileSparkHash} from "~/utils/calcHash";
 defineEmits<{
   (e:'onCopy',str:string):void
 }>()
@@ -61,34 +60,6 @@ function calS(s: number) {
   else return (s / 1024 / 1024).toFixed(2) + ' mb'
 }
 
-async function calculateFileSparkHash(file: File, chunkSize: number): Promise<string> {
-  const spark = new SparkMD5.ArrayBuffer();
-  const fileReader = new FileReader();
-
-  for (let offset = 0; offset < file.size; offset += chunkSize) {
-    const chunk = file.slice(offset, offset + chunkSize);
-    const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-      fileReader.onload = (event: ProgressEvent<FileReader>) => {
-        if (event.target) {
-          resolve(event.target.result as ArrayBuffer);
-        }
-      };
-      fileReader.onerror = reject;
-      fileReader.readAsArrayBuffer(chunk);
-    });
-    spark.append(arrayBuffer);  // 每次处理部分文件
-  }
-
-  return spark.end();  // 返回最终的哈希值
-}
-
-
-async function calculateFileHash(file:File) {
-  const arrayBuffer = await file.arrayBuffer();
-  const wordArray = CryptoJS.lib.WordArray.create(arrayBuffer);
-  const hash = CryptoJS.SHA256(wordArray);
-  return hash.toString(CryptoJS.enc.Hex);
-}
 
 const uploadProgress = ref<number[]>([]); // 用于保存每个分片的上传进度
 const uploadList = ref<string[]>([]); // 用于保存上传的分片信息
@@ -206,7 +177,7 @@ const onAccess = () => {
     </div>
     <div class="finialPath mb-2 text-center">
       <p>上传成功路径: {{progressObj.sucLink??'-'}}</p>
-      <el-button type="primary" size="small" :disabled="!progressObj.sucLink" @click="()=>$emit('onCopy',progressObj.sucLink!)">复制</el-button>
+      <el-button type="primary" size="small" :disabled="!progressObj.sucLink" @click="()=>$emit('onCopy',`/static${progressObj.sucLink}`)">复制</el-button>
       <el-button type="primary" size="small" :disabled="!progressObj.sucLink" @click="onAccess">访问</el-button>
     </div>
     <div class="btn">

@@ -4,6 +4,7 @@ import http from "~/api";
 import {Upload} from "~/api/api";
 import {useIndexedDB} from '~/utils/indexDb';
 import {getStorage, setStorage} from "~/utils/storage";
+import {calculateBlobHash, calculateFileHash} from "~/utils/calcHash";
 // indexDb 存储支持
 const config = useRuntimeConfig()
 const isClient = computed(() => !config.isServer)
@@ -13,7 +14,7 @@ const sliceDownload = [
 ]
 const f = reactive({
   path: '/static/medias/2024/09/all too well.mp4',
-  size: 256
+  size: 2048
 })
 const currentChunk = ref<number>(0)
 // let fileTemp:Blob[]=[]
@@ -21,20 +22,23 @@ const isDownload = ref<boolean>(false)
 const fileInfo = reactive({
   mPath: '',
   totalSize: 0,
-  totalChunk: 1
+  totalChunk: 1,
+  fileHash:null
 })
 const onStart = () => {
   // 获取文件信息
   http.get(Upload.fileInfo, f).then(v => {
-    const {totalSize, sliceNum, sliceSize, mPath, path} = v.data
+    const {totalSize, sliceNum, sliceSize, mPath, path,fileHash} = v.data
     fileInfo.totalSize = totalSize
     fileInfo.totalChunk = sliceNum
     fileInfo.mPath = mPath
+    fileInfo.fileHash=fileHash
     isDownload.value = true
     setStorage('fileInfo', {
       totalSize,
       size: f.size,
       totalChunk: sliceNum,
+      fileHash:fileHash
     })
     downFile()
   }).catch(r => {
@@ -82,6 +86,10 @@ async function finishFile() {
     }
   }
   const blob = new Blob(fileTemp, {type: 'application/octet-stream'});
+  let calcHash=''
+  if (fileInfo.totalSize<1024*1024) calcHash=await calculateFileHash(blob)
+  else calcHash=await calculateBlobHash(blob)
+  if (calcHash!==fileInfo.fileHash) ElMessage.error('hash比对有误')
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -100,6 +108,7 @@ onMounted(async () => {
     if (dInfo !== null) {
       fileInfo.totalSize = dInfo.totalSize
       fileInfo.totalChunk = dInfo.totalChunk
+      fileInfo.fileHash=dInfo.fileHash
       f.size = dInfo.size
       if (keys.length > 0) {
         currentChunk.value = keys.length;
@@ -129,7 +138,8 @@ onMounted(async () => {
           <el-card>
             <el-form>
               <el-form-item label="文件切割大小">
-                <el-input-number v-model="f.size" :min="50"></el-input-number>
+                <el-input-number v-model="f.size" :min="50"></el-input-number>&nbsp;&nbsp;
+                服务器回传hash {{fileInfo.fileHash??'none'}}
               </el-form-item>
               <el-form-item label="文件路径">
                 <el-input v-model="f.path"></el-input>
