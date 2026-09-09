@@ -5,7 +5,6 @@ export default defineNuxtConfig({
   },
   runtimeConfig:{
     isServer: true,
-    uploadApiBase: 'http://127.0.0.1:4000/upload',
     public:{
       baseUrl:'/up',
     }
@@ -13,6 +12,15 @@ export default defineNuxtConfig({
   devServer: {
     host: '0.0.0.0',
     port: 4002,
+  },
+  nitro: {
+    devProxy: {
+      '/up': {
+        target: 'http://127.0.0.1:4000/upload',
+        changeOrigin: true,
+        prependPath: true
+      },
+    }
   },
   compatibilityDate: '2024-04-03',
   devtools: { enabled: true },
