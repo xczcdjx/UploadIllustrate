@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {Disclosure, DisclosureButton, DisclosurePanel, Menu, MenuButton, MenuItem, MenuItems} from '@headlessui/vue'
 import {Bars3Icon, BellIcon, XMarkIcon} from '@heroicons/vue/24/outline'
+const accessToken = useState<string>('api-access-token', () => '');
 const user = {
   name: 'Solitude',
   email: '123@qq.com',
@@ -9,8 +10,8 @@ const user = {
 }
 const navigation = [
   {name: 'Upload', href: '/', path: 'index'},
-  {name: 'Download', href: 'Download', path: 'Download'},
-  {name: 'Swagger Ui', href: 'Swagger', path: 'Swagger'},
+  {name: 'Download', href: '/Download', path: 'Download'},
+  {name: 'Swagger Ui', href: '/Swagger', path: 'Swagger'},
 ]
 const userNavigation = [
   {name: 'Your Profile', href: '#'},
@@ -129,6 +130,10 @@ const userNavigation = [
         </div>
       </header>
       <main>
+        <div class="mx-5 mt-4">
+          <label class="block mb-2">上传鉴权 accessToken（仅保存在当前页面会话）</label>
+          <el-input v-model="accessToken" type="password" show-password placeholder="填写同一身份的 accessToken 后上传" />
+        </div>
 <!--        <div class="mx-auto max-w-7xl px-2 py-4 sm:px-2 lg:px-4">-->
           <slot/>
 <!--        </div>-->
@@ -139,9 +144,6 @@ const userNavigation = [
 
 <style scoped>
 .contain {
-  //width: 100vw;
   height: 100vh;
-  //display: grid;
-  //grid-auto-rows: 4rem 60px 1fr;
 }
 </style>

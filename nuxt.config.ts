@@ -6,12 +6,22 @@ export default defineNuxtConfig({
   runtimeConfig:{
     isServer: true,
     public:{
-      baseUrl:'http://192.168.124.27:3335',
+      baseUrl:'/up',
     }
   },
   devServer: {
     host: '0.0.0.0',
-    port: 3355,
+    port: 4002,
+  },
+  nitro: {
+    devProxy: {
+      '/up': {
+        target: 'http://127.0.0.1:4000/upload',
+        // target: 'https://rerain.online/client',
+        changeOrigin: true,
+        prependPath: true
+      },
+    }
   },
   compatibilityDate: '2024-04-03',
   devtools: { enabled: true },

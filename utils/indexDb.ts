@@ -20,7 +20,9 @@ export const useIndexedDB = (dbName: string, storeName: string) => {
             const store = await getObjectStore("readwrite");
             const request = store.put(value, key);
             return new Promise<void>((resolve, reject) => {
-                request.onsuccess = () => resolve();
+                store.transaction.oncomplete = () => resolve();
+                store.transaction.onabort = () => reject(store.transaction.error);
+                store.transaction.onerror = () => reject(store.transaction.error);
                 request.onerror = () => reject(request.error);
             });
         },
@@ -36,7 +38,9 @@ export const useIndexedDB = (dbName: string, storeName: string) => {
             const store = await getObjectStore("readwrite");
             const request = store.delete(key);
             return new Promise<void>((resolve, reject) => {
-                request.onsuccess = () => resolve();
+                store.transaction.oncomplete = () => resolve();
+                store.transaction.onabort = () => reject(store.transaction.error);
+                store.transaction.onerror = () => reject(store.transaction.error);
                 request.onerror = () => reject(request.error);
             });
         },
@@ -52,7 +56,9 @@ export const useIndexedDB = (dbName: string, storeName: string) => {
             const store = await getObjectStore("readwrite");
             const request = store.clear();
             return new Promise<void>((resolve, reject) => {
-                request.onsuccess = () => resolve();
+                store.transaction.oncomplete = () => resolve();
+                store.transaction.onabort = () => reject(store.transaction.error);
+                store.transaction.onerror = () => reject(store.transaction.error);
                 request.onerror = () => reject(request.error);
             });
         }

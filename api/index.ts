@@ -1,102 +1,55 @@
-import {type UseFetchOptions} from "nuxt/app";
-import {type FetchContext,type FetchResponse} from "ofetch";
-// import {userStore} from "~/store/user";
-
-type Methods = "GET" | "POST" | "DELETE" | "PUT" | "PATCH";
-const BASE_URL = 'http://192.168.124.27:3335';
-
-export interface Data<T = any> {
-    code: number;
-    data: T;
-    msg: string;
+export interface Data<T = any> { code: number; data: T; msg: string }
+interface RequestOptions {
+    headers?: HeadersInit;
+    responseType?: 'blob';
+    signal?: AbortSignal;
 }
-
-export interface errorData {
-    message: string,
-    error: string,
-    statusCode: number
+export function errorMessage(error: unknown): string {
+    const payload = error as { msg?: unknown; message?: any } | null;
+    const message = payload?.msg ?? payload?.message?.message ?? payload?.message;
+    if (typeof message === 'string') return message;
+    if (Array.isArray(message)) return message.map(String).join('；');
+    return String(error);
 }
-
 class HttpRequest {
-    request<T = any>(
-        url: string,
-        method: Methods,
-        data: any,
-        options?: UseFetchOptions<T>,
-    ): Promise<Data> {
-        // const {token} = storeToRefs(userStore())
-        return new Promise((resolve, reject) => {
-            const newOptions: UseFetchOptions<T> = {
-                baseURL: BASE_URL,
-                method: method,
-                ...options,
-            };
-            if (method === "GET" || method === "DELETE") {
-                newOptions.params = data;
+    constructor(private base: string, private token: () => string, private origin: string) {}
+    resourceUrl(prefix: string | undefined, path: string): string {
+        return `${(prefix || `${this.base}/static`).replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
+    }
+    async request(url: string, method: string, data: any, options: RequestOptions = {}): Promise<any> {
+        // 相对代理路径（如 /up）以当前页面域名解析，完整服务地址保持不变。
+        const target = new URL(`${this.base}${url}`, this.origin);
+        const headers = new Headers(options.headers);
+        const token = this.token().trim();
+        if (token && !headers.has('accessToken')) headers.set('accessToken', token);
+        let body: BodyInit | undefined;
+        if (method === 'GET') {
+            for (const [key, value] of Object.entries(data ?? {})) {
+                if (value !== undefined && value !== null) target.searchParams.set(key, String(value));
             }
-            if (method === "POST" || method === "PUT" || method === "PATCH") {
-                newOptions.body = data;
-            }
-            useFetch(url, {
-                ...newOptions, onRequest({request, options}) {
-                    // 设置请求头
-                    options.headers = {...options.headers,
-                        // authorization: token.value
-                    };
-                }, onResponse(context: FetchContext & {
-                    response: FetchResponse<any>
-                }): Promise<Data> | void {
-                    const data = context.response._data
-                    if (![200,201,206].includes(context.response.status)) {
-                        reject({
-                            ...data,
-                            message: typeof data.message === 'object' ? Array.isArray(data.message.message)
-                                ? data.message.message.join(',') : data.message.message : data.message
-                        })
-                    } else {
-                        if (context.response.status===206) return resolve(data)
-                        resolve({
-                            data: data.data,
-                            code: 200,
-                            msg: data.msg
-                        })
-                    }
-                }, onRequestError({request, options, error}) {
-                    // 处理请求错误
-                    console.warn(error)
-                },
-                onResponseError({request, response, options}) {
-                    // 处理响应错误
-                    console.warn(response)
-                }
-            })
-        });
+        } else if (data instanceof FormData) body = data;
+        else if (data !== undefined) {
+            headers.set('Content-Type', 'application/json');
+            body = JSON.stringify(data);
+        }
+        const response = await fetch(target, {method, headers, body, signal: options.signal});
+        if (!response.ok) {
+            throw await response.json();
+        }
+        if (options.responseType === 'blob') return response.blob();
+        const payload = await response.json();
+        console.log(payload)
+        if (payload.success === false || (payload.code !== undefined && ![200, 201, 206].includes(payload.code))) {
+            throw payload;
+        }
+        return payload;
     }
-
-    // 封装常用方法
-
-    get<T = any>(url: string, params?: any, options?: UseFetchOptions<T>) {
-        return this.request(url, "GET", params, options);
-    }
-
-    post<T = any>(url: string, data: any, options?: UseFetchOptions<T>) {
-        return this.request(url, "POST", data, options);
-    }
-
-    put<T = any>(url: string, data: any, options?: UseFetchOptions<T>) {
-        return this.request(url, "PUT", data, options);
-    }
-
-    patch<T = any>(url: string, data: any, options?: UseFetchOptions<T>) {
-        return this.request(url, "PATCH", data, options);
-    }
-
-    deleteT<T = any>(url: string, params: any, options?: UseFetchOptions<T>) {
-        return this.request(url, "DELETE", params, options);
-    }
+    get(url: string, params?: any, options?: RequestOptions) { return this.request(url, 'GET', params, options); }
+    post(url: string, data?: any, options?: RequestOptions) { return this.request(url, 'POST', data, options); }
 }
-
-const http = new HttpRequest();
-
-export default http;
-
+export default function useHttp() {
+    const base = String(useRuntimeConfig().public.baseUrl).replace(/\/$/, '');
+    const token = useState<string>('api-access-token', () => '');
+    const origin = useRequestURL().origin;
+    return new HttpRequest(base, () => token.value, origin);
+}

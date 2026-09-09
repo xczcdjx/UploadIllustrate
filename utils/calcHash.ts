@@ -1,55 +1,21 @@
-import SparkMD5 from "spark-md5";
-//@ts-ignore
-import CryptoJS from "crypto-js";
+import SparkMD5 from 'spark-md5';
+import CryptoJS from 'crypto-js';
 
-async function calculateFileSparkHash(file: File, chunkSize: number): Promise<string> {
-    const spark = new SparkMD5.ArrayBuffer();
-    const fileReader = new FileReader();
+export type HashAlgorithm = 'sha256' | 'md5';
 
+// 分块增量计算完整文件摘要，算法与文件大小、上传分片大小无关。
+export async function calculateHash(file: Blob, algorithm: HashAlgorithm = 'sha256', chunkSize = 2 * 1024 * 1024): Promise<string> {
+    if (!Number.isSafeInteger(chunkSize) || chunkSize <= 0) throw new Error('无效的 hash 分块大小');
+    if (algorithm !== 'sha256' && algorithm !== 'md5') throw new Error('不支持的 hash 算法');
+    const md5 = algorithm === 'md5' ? new SparkMD5.ArrayBuffer() : null;
+    const sha256 = algorithm === 'sha256' ? CryptoJS.algo.SHA256.create() : null;
     for (let offset = 0; offset < file.size; offset += chunkSize) {
-        const chunk = file.slice(offset, offset + chunkSize);
-        const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-            fileReader.onload = (event: ProgressEvent<FileReader>) => {
-                if (event.target) {
-                    resolve(event.target.result as ArrayBuffer);
-                }
-            };
-            fileReader.onerror = reject;
-            fileReader.readAsArrayBuffer(chunk);
-        });
-        spark.append(arrayBuffer);  // 每次处理部分文件
+        const bytes = await file.slice(offset, offset + chunkSize).arrayBuffer();
+        if (md5) md5.append(bytes);
+        else sha256!.update(CryptoJS.lib.WordArray.create(bytes));
     }
-
-    return spark.end();  // 返回最终的哈希值
+    return md5 ? md5.end() : sha256!.finalize().toString(CryptoJS.enc.Hex);
 }
-async function calculateBlobHash(blob: Blob): Promise<string> {
-    return new Promise<string>((resolve, reject) => {
-        const fileReader = new FileReader();
-        const spark = new SparkMD5.ArrayBuffer();
-
-        // 读取 Blob 数据
-        fileReader.onload = (event: ProgressEvent<FileReader>) => {
-            const arrayBuffer = event.target?.result as ArrayBuffer;
-            spark.append(arrayBuffer);  // 追加 ArrayBuffer 格式的数据
-            const hash = spark.end();   // 获取最终的哈希值
-            resolve(hash);              // 返回哈希值
-        };
-
-        fileReader.onerror = (error) => {
-            reject(error);              // 处理读取错误
-        };
-
-        // 将 Blob 读取为 ArrayBuffer
-        fileReader.readAsArrayBuffer(blob);
-    });
-}
-async function calculateFileHash(file:File|Blob) {
-    const arrayBuffer = await file.arrayBuffer();
-    const wordArray = CryptoJS.lib.WordArray.create(arrayBuffer);
-    const hash = CryptoJS.SHA256(wordArray);
-    return hash.toString(CryptoJS.enc.Hex);
-}
-
-export {
-    calculateFileHash,calculateFileSparkHash,calculateBlobHash
-}
+export const calculateFileHash = (file: Blob) => calculateHash(file, 'sha256');
+export const calculateBlobHash = (file: Blob) => calculateHash(file, 'md5');
+export const calculateFileSparkHash = (file: Blob, chunkSize: number) => calculateHash(file, 'md5', chunkSize);
